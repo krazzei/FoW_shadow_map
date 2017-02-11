@@ -7,7 +7,7 @@ public class FogOfWar : MonoBehaviour
 	private const int MAX_TERRAIN_HEIGHT = 600;
 
 	[SerializeField]
-	private List<Reveler> _revelers;
+	private List<Revealer> _revealers;
 	[SerializeField]
 	private int _textureWidth;
 	[SerializeField]
@@ -22,15 +22,20 @@ public class FogOfWar : MonoBehaviour
 	private int _heightMapWidth;
 	[SerializeField]
 	private int _heightMapHeight;
+	[SerializeField]
+	private int _interpolationFrames;
 
 	private Texture2D _shadowMap;
 	private Color32[] _pixels;
 	private int[] _heightMapData;
+	private int _interpolateStartFrame;
+	private Texture2D _lastShadowMap;
 	#endregion
 
 	private void Awake()
 	{
 		_shadowMap = new Texture2D(_textureWidth, _textureHeight, TextureFormat.RGB24, false);
+		_lastShadowMap = new Texture2D(_textureWidth, _textureHeight, TextureFormat.RGB24, false);
 
 		_pixels = _shadowMap.GetPixels32();
 
@@ -38,11 +43,15 @@ public class FogOfWar : MonoBehaviour
 		{
 			_pixels[i] = Color.black;
 		}
-
+		
 		_shadowMap.SetPixels32(_pixels);
 		_shadowMap.Apply();
 
+		_lastShadowMap.SetPixels32(_pixels);
+		_lastShadowMap.Apply();
+
 		_fogMaterial.SetTexture("_ShadowMap", _shadowMap);
+		_fogMaterial.SetTexture("_LastShadowMap", _lastShadowMap);
 
 		byte[] heightBytes = _heightMap.bytes;
 		_heightMapData = new int[heightBytes.Length / 2];
@@ -54,22 +63,37 @@ public class FogOfWar : MonoBehaviour
 		}
 	}
 
-	private void Update()
+	private void Start()
 	{
-		for (var i = 0; i < _pixels.Length; ++i)
-		{
-			_pixels[i].r = 0;
-		}
-		
 		UpdateShadowMap();
-
-		_shadowMap.SetPixels32(_pixels);
-		_shadowMap.Apply();
 	}
 
+	private void Update()
+	{
+		if (Time.frameCount % _interpolationFrames == 0)
+		{
+			_lastShadowMap.SetPixels32(_pixels);
+			_lastShadowMap.Apply();
+
+			for (var i = 0; i < _pixels.Length; ++i)
+			{
+				_pixels[i].r = 0;
+			}
+
+			UpdateShadowMap();
+
+			_interpolateStartFrame = Time.frameCount;
+
+			_shadowMap.SetPixels32(_pixels);
+			_shadowMap.Apply();
+		}
+
+		_fogMaterial.SetFloat("_interpolationValue", (Time.frameCount - _interpolateStartFrame) / (float)_interpolationFrames);
+	}
+	
 	private void UpdateShadowMap()
 	{
-		foreach (var reveler in _revelers)
+		foreach (var reveler in _revealers)
 		{
 			DrawFilledMidpointCircleSinglePixelVisit(reveler.transform.position, reveler.sight);
 		}

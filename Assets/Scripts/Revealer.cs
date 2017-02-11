@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-public class Reveler : MonoBehaviour
+public class Revealer : MonoBehaviour
 {
 	public int sight;
 
